@@ -115,6 +115,7 @@ class FeatureRegression(nn.Module):
         super(FeatureRegression, self).__init__()
         num_layers = len(kernel_sizes)
         nn_modules = list()
+        output_size = feature_size
         for i in range(num_layers):
             if i==0:
                 ch_in = feature_size*feature_size
@@ -122,12 +123,13 @@ class FeatureRegression(nn.Module):
                 ch_in = channels[i-1]
             ch_out = channels[i]
             k_size = kernel_sizes[i]
+            output_size = output_size - k_size + 1
             nn_modules.append(nn.Conv2d(ch_in, ch_out, kernel_size=k_size, padding=0))
             if batch_normalization:
                 nn_modules.append(nn.BatchNorm2d(ch_out))
             nn_modules.append(nn.ReLU(inplace=True))
         self.conv = nn.Sequential(*nn_modules)        
-        self.linear = nn.Linear(ch_out * k_size * k_size, output_dim)
+        self.linear = nn.Linear(ch_out * output_size * output_size, output_dim)
         if use_cuda:
             self.conv.cuda()
             self.linear.cuda()
@@ -250,10 +252,11 @@ class TwoStageCNNGeometric(CNNGeometric):
         
         #===  STAGE 2 ===#        
         # warp image 1
+        _, _, h, w = batch['source_image'].size()
         if use_theta_GT_aff==False:
-            source_image_wrp = self.geoTnf(batch['source_image'],theta_1)
+            source_image_wrp = self.geoTnf(batch['source_image'],theta_1,out_h=h,out_w=w)
         else:
-            source_image_wrp = self.geoTnf(batch['source_image'],batch['theta_GT_aff'])
+            source_image_wrp = self.geoTnf(batch['source_image'],batch['theta_GT_aff'],out_h=h,out_w=w)
         # feature extraction
         f_src_wrp = self.FeatureExtraction(source_image_wrp)
         # feature correlation
